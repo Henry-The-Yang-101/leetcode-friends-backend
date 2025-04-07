@@ -19,8 +19,19 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 @app.route('/friend_request/send', methods=['POST'])
 def send_friend_request():
     data = request.get_json()
-    sender_id = data.get("sender_id")
-    receiver_id = data.get("receiver_id")
+    sender_username = data.get("sender_username")
+    receiver_username = data.get("receiver_username")
+    
+    # Query the users table for sender and receiver by username
+    sender_response = supabase.table("users").select("id").eq("username", sender_username).execute()
+    receiver_response = supabase.table("users").select("id").eq("username", receiver_username).execute()
+    
+    # Check if both users were found
+    if not sender_response.data or not receiver_response.data:
+        return jsonify({"error": "Sender or receiver not found"}), 404
+    
+    sender_id = sender_response.data[0]["id"]
+    receiver_id = receiver_response.data[0]["id"]
     
     # Insert the friend request into the "pending_friend_requests" table
     response = supabase.table("pending_friend_requests").insert({
