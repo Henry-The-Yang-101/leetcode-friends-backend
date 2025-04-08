@@ -271,7 +271,7 @@ def get_friends():
 
     # Query the friendships table for rows where user_id matches the retrieved user ID
     try:
-        friends_response = supabase.table("friendships").select("friend_id, friend:users(username)").eq("user_id", user_id).execute()
+        friends_response = supabase.table("friendships").select("friend_id, users!friendships_friend_id_fkey(username)").eq("user_id", user_id).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
     
