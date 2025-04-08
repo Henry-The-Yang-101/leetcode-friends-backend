@@ -42,7 +42,7 @@ def register_user():
     return jsonify({"message": f"User {username} registered!", "user": response.data}), 200
 
 # Endpoint for sending a friend request
-@app.route('/friend_request/send', methods=['POST'])
+@app.route('/friend-request/send', methods=['POST'])
 def send_friend_request():
     data = request.get_json()
     sender_username = data.get("sender_username")
@@ -78,7 +78,7 @@ def send_friend_request():
     
     return jsonify({"message": "Friend request sent!", "response": response.data}), 200
 
-@app.route('/friend_request/accept', methods=['POST'])
+@app.route('/friend-request/accept', methods=['POST'])
 def accept_friend_request():
     data = request.get_json()
     sender_username = data.get("sender_username")
@@ -141,7 +141,7 @@ def accept_friend_request():
     }), 200
 
 # Endpoint for declining a friend request
-@app.route('/friend_request/decline', methods=['POST'])
+@app.route('/friend-request/decline', methods=['POST'])
 def decline_friend_request():
     data = request.get_json()
     sender_username = data.get("sender_username")
@@ -194,7 +194,7 @@ def decline_friend_request():
     }), 200
 
 # Endpoint to retrieve incoming friend requests for a specific user
-@app.route('/friend_request/incoming', methods=['GET'])
+@app.route('/friend-request/incoming', methods=['GET'])
 def get_incoming_friend_requests():
     username = request.args.get("username")
     if not username:
@@ -223,7 +223,7 @@ def get_incoming_friend_requests():
     return jsonify({"incoming_friend_requests": pending_response.data}), 200
 
 # Endpoint to retrieve outgoing friend requests for a specific user
-@app.route('/friend_request/outgoing', methods=['GET'])
+@app.route('/friend-request/outgoing', methods=['GET'])
 def get_outgoing_friend_requests():
     username = request.args.get("username")
     if not username:
