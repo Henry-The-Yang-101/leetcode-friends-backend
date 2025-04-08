@@ -17,6 +17,32 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
+# New endpoint to register a new user
+@app.route('/register', methods=['POST'])
+def register_user():
+    data = request.get_json()
+    username = data.get("username")
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    # Check if the user is already registered
+    try:
+        existing_user = supabase.table("users").select("id").eq("username", username).execute()
+    except Exception as e:
+        return jsonify({"error": f"Error checking existing user: {str(e)}"}), 500
+
+    if existing_user.data:
+        return jsonify({"error": "User already exists"}), 400
+
+    # Insert the new user into the users table
+    try:
+        response = supabase.table("users").insert({"username": username}).execute()
+    except Exception as e:
+        return jsonify({"error": f"Error registering user: {str(e)}"}), 500
+
+    return jsonify({"message": f"User {username} registered!", "user": response.data}), 200
+
 # Endpoint for sending a friend request
 @app.route('/friend_request/send', methods=['POST'])
 def send_friend_request():
