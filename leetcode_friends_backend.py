@@ -214,11 +214,16 @@ def get_incoming_friend_requests():
     # Query pending_friend_requests where the user is the receiver
     try:
         pending_response = supabase.table("pending_friend_requests") \
-            .select("*") \
+            .select("sender_id, created_at, sender_username:users!pending_friend_requests_sender_id_fkey(username)") \
             .eq("receiver_id", user_id) \
             .execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching incoming friend requests: {str(e)}"}), 500
+
+    # Flatten sender_username to be a plain string if it's nested
+    for friend_request in pending_response.data:
+        if isinstance(friend_request.get('sender_username'), dict):
+            friend_request['sender_username'] = friend_request['sender_username'].get('username')
 
     return jsonify({"incoming_friend_requests": pending_response.data}), 200
 
@@ -243,11 +248,16 @@ def get_outgoing_friend_requests():
     # Query pending_friend_requests where the user is the sender
     try:
         pending_response = supabase.table("pending_friend_requests") \
-            .select("*") \
+            .select("receiver_id, created_at, receiver_username:users!pending_friend_requests_receiver_id_fkey(username)") \
             .eq("sender_id", user_id) \
             .execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching outgoing friend requests: {str(e)}"}), 500
+
+    # Flatten receiver_username to be a plain string if it's nested
+    for friend_request in pending_response.data:
+        if isinstance(friend_request.get('receiver_username'), dict):
+            friend_request['receiver_username'] = friend_request['receiver_username'].get('username')
 
     return jsonify({"outgoing_friend_requests": pending_response.data}), 200
 
