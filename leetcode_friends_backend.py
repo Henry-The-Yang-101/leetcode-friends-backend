@@ -66,6 +66,19 @@ def send_friend_request():
     
     sender_id = sender_response.data[0]["id"]
     receiver_id = receiver_response.data[0]["id"]
+
+    # Check if the given users are already friends
+    try:
+        friendship_response = supabase.table("friendships") \
+            .select("id") \
+            .eq("user_id", sender_id) \
+            .eq("friend_id", receiver_id) \
+            .execute()
+    except Exception as e:
+        return jsonify({"error": f"Error checking friendship: {str(e)}"}), 500
+
+    if friendship_response.data:
+        return jsonify({"error": "These users are already friends"}), 400
     
     # Insert the friend request into the "pending_friend_requests" table
     try:
