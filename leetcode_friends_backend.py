@@ -3,6 +3,8 @@ from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
 
+from leetcode_endpoint import fetch_leetcode_friend_data
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -248,8 +250,15 @@ def get_friends():
         friends_response = supabase.table("friendships").select("friend_id, friend:users(username)").eq("user_id", user_id).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
-
+    
     return jsonify({"friends": friends_response.data}), 200
+
+@app.route('/temp', methods=['GET'])
+def temp():
+    # Example usage of the fetch_leetcode_friend_data function
+    friend_username = "SavageSparky101"
+    friend_data = fetch_leetcode_friend_data(friend_username)
+    return jsonify(friend_data), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
