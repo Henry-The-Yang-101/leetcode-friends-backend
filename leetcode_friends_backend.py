@@ -2,12 +2,14 @@ from flask import Flask, render_template, jsonify, request
 from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 from leetcode_endpoint import fetch_leetcode_friend_data
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app, origins=["https://leetcode.com"])
 
 # Retrieve Supabase credentials from environment variables
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
