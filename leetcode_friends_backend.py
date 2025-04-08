@@ -251,6 +251,18 @@ def get_friends():
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
     
+    # For each friend, call fetch_leetcode_friend_data and merge the returned data into the friend record
+    friends_data = friends_response.data
+    for friend in friends_data:
+        # Assume friend structure is like: {"friend_id": "some-uuid", "friend": {"username": "SomeFriend"}}
+        friend_username = friend.get("friend", {}).get("username")
+        if friend_username:
+            try:
+                leetcode_data = fetch_leetcode_friend_data(friend_username)
+            except Exception as e:
+                leetcode_data = {"error": str(e)}
+            friend["data"] = leetcode_data
+    
     return jsonify({"friends": friends_response.data}), 200
 
 @app.route('/temp', methods=['GET'])

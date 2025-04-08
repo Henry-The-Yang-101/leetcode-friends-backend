@@ -79,7 +79,7 @@ def fetch_leetcode_friend_data(friend_username):
     variables = {
         "username": friend_username,
         "userSlug": friend_username,
-        "year": 2023,
+        "year": 2025,
         "limit": 5
     }
 
