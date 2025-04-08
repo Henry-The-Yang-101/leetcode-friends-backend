@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 from leetcode_endpoint import fetch_leetcode_friend_data
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -16,7 +15,6 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 
 # New endpoint to register a new user
 @app.route('/register', methods=['POST'])
