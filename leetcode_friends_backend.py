@@ -292,30 +292,31 @@ def get_friends():
 
     user_id = user_response.data[0]["id"]
 
-    # Query the friendships table for rows where user_id matches the retrieved user ID
+    # Query the friendships table for rows where user_id matches the retrieved user ID, aliasing the username to friend_username
     try:
-        friends_response = supabase.table("friendships").select("friend_id, users!friendships_friend_id_fkey(username)").eq("user_id", user_id).execute()
+        friends_response = supabase.table("friendships").select("friend_id, friend_username:users!friendships_friend_id_fkey(username)").eq("user_id", user_id).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
     
     # For each friend, call fetch_leetcode_friend_data and merge the returned data into the friend record
     friends_data = friends_response.data
     for friend in friends_data:
-        # Assume friend structure is like: {"friend_id": "some-uuid", "friend": {"username": "SomeFriend"}}
-        friend_username = friend.get("friend", {}).get("username")
+        friend_username = friend.get("friend_username")
         if friend_username:
+            if isinstance(friend.get('friend_username'), dict):
+                friend['friend_username'] = friend_username.get('username')
             try:
-                leetcode_data = fetch_leetcode_friend_data(friend_username)
+                leetcode_data = fetch_leetcode_friend_data(friend['friend_username'])
             except Exception as e:
                 leetcode_data = {"error": str(e)}
-            friend["data"] = leetcode_data
+            friend["data"] = leetcode_data.get("data")
     
     return jsonify({"friends": friends_response.data}), 200
 
 @app.route('/temp', methods=['GET'])
 def temp():
     # Example usage of the fetch_leetcode_friend_data function
-    friend_username = "SavageSparky101"
+    friend_username = "rubylu"
     friend_data = fetch_leetcode_friend_data(friend_username)
     return jsonify(friend_data), 200
 
