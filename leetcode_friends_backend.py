@@ -18,7 +18,20 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# New endpoint to register a new user
+@app.route('/user-is-registered', methods=['GET'])
+def user_is_registered():
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "username parameter is required"}), 400
+
+    try:
+        user_response = supabase.table("users").select("id").eq("username", username).execute()
+    except Exception as e:
+        return jsonify({"error": f"Error checking user registration: {str(e)}"}), 500
+
+    is_registered = bool(user_response.data)
+    return jsonify({"is_registered": is_registered}), 200
+
 @app.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
