@@ -1,6 +1,4 @@
 import requests
-import json
-
 
 LEETCODE_ENDPOINT_URL = "https://leetcode.com/graphql/"
 
