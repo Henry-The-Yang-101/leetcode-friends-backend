@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from supabase import create_client, Client
 import os
+import requests
 from dotenv import load_dotenv
 from flask_cors import CORS
 
@@ -38,6 +39,11 @@ def register_user():
     username = data.get("username")
     if not username:
         return jsonify({"error": "Username is required"}), 400
+    
+    leetcode_url = f"https://leetcode.com/u/{username}"
+    leetcode_response = requests.get(leetcode_url)
+    if leetcode_response.status_code == 404:
+        return jsonify({"error": f"LeetCode user '{username}' not found"}), 404
 
     # Check if the user is already registered
     try:
