@@ -24,27 +24,7 @@ query friendData(
     }
   }
   userProfileUserQuestionProgressV2: userProfileUserQuestionProgressV2(userSlug: $userSlug) {
-    numAcceptedQuestions {
-      count
-      difficulty
-    }
-    numFailedQuestions {
-      count
-      difficulty
-    }
-    numUntouchedQuestions {
-      count
-      difficulty
-    }
-    userSessionBeatsPercentage {
-      difficulty
-      percentage
-    }
     totalQuestionBeatsPercentage
-  }
-  allQuestionsCount {
-    difficulty
-    count
   }
   userSessionStats: matchedUser(username: $username) {
     submitStats {
@@ -80,7 +60,7 @@ def fetch_leetcode_friend_data(friend_username):
         "username": friend_username,
         "userSlug": friend_username,
         "year": 2025,
-        "limit": 5
+        "limit": 10
     }
 
     payload = {
