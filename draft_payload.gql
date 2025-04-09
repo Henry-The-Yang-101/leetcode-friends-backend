@@ -1,0 +1,44 @@
+query userData(
+  $username: String!, 
+  $userSlug: String!, 
+  $year: Int, 
+  $limit: Int!
+) {
+  userPublicProfile: matchedUser(username: $username) {
+    profile {
+      ranking
+      userAvatar
+      realName
+    }
+  }
+  userProfileUserQuestionProgressV2: userProfileUserQuestionProgressV2(userSlug: $userSlug) {
+    totalQuestionBeatsPercentage
+  }
+  userSessionStats: matchedUser(username: $username) {
+    submitStats {
+      acSubmissionNum {
+        difficulty
+        count
+        submissions
+      }
+      totalSubmissionNum {
+        difficulty
+        count
+        submissions
+      }
+    }
+  }
+  userProfileCalendar: matchedUser(username: $username) {
+    userCalendar(year: $year) {
+      activeYears
+      streak
+      totalActiveDays
+      submissionCalendar
+    }
+  }
+  recentAcSubmissions: recentAcSubmissionList(username: $username, limit: $limit) {
+    title
+    titleSlug
+    timestamp
+  }
+}
