@@ -322,5 +322,16 @@ def temp():
     friend_data = fetch_leetcode_user_data(friend_username)
     return jsonify(friend_data), 200
 
+@app.route('/user-data/', methods=['GET'])
+def get_leetcode_user_data():
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"error": "username parameter is required"}), 400
+    try:
+        user_data = fetch_leetcode_user_data(username)
+        return jsonify(user_data), 200
+    except Exception as e:
+        return jsonify({"error": f"Error fetching data for {username}: {str(e)}"}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
