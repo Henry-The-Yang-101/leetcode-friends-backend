@@ -9,7 +9,7 @@ from leetcode_endpoint import fetch_leetcode_user_data
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["https://leetcode.com"])
+CORS(app, origins=["https://leetcode.com/*"])
 
 # Retrieve Supabase credentials from environment variables
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
