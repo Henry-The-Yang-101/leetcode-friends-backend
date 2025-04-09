@@ -315,13 +315,6 @@ def get_friends():
     
     return jsonify({"friends": friends_response.data}), 200
 
-@app.route('/temp', methods=['GET'])
-def temp():
-    # Example usage of the fetch_leetcode_friend_data function
-    friend_username = "rubylu"
-    friend_data = fetch_leetcode_user_data(friend_username)
-    return jsonify(friend_data), 200
-
 @app.route('/user-data/', methods=['GET'])
 def get_leetcode_user_data():
     username = request.args.get("username")
