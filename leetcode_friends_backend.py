@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from flask_cors import CORS
 
-from leetcode_endpoint import fetch_leetcode_friend_data
+from leetcode_endpoint import fetch_leetcode_user_data
 
 load_dotenv()
 
@@ -308,7 +308,7 @@ def get_friends():
             if isinstance(friend.get('friend_username'), dict):
                 friend['friend_username'] = friend_username.get('username')
             try:
-                leetcode_data = fetch_leetcode_friend_data(friend['friend_username'])
+                leetcode_data = fetch_leetcode_user_data(friend['friend_username'])
             except Exception as e:
                 leetcode_data = {"error": str(e)}
             friend["data"] = leetcode_data.get("data")
@@ -319,7 +319,7 @@ def get_friends():
 def temp():
     # Example usage of the fetch_leetcode_friend_data function
     friend_username = "rubylu"
-    friend_data = fetch_leetcode_friend_data(friend_username)
+    friend_data = fetch_leetcode_user_data(friend_username)
     return jsonify(friend_data), 200
 
 if __name__ == '__main__':

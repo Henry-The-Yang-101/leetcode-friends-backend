@@ -8,57 +8,14 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# Define the merged query as a multiline string
-QUERY = """
-query friendData(
-  $username: String!, 
-  $userSlug: String!, 
-  $year: Int, 
-  $limit: Int!
-) {
-  userPublicProfile: matchedUser(username: $username) {
-    profile {
-      ranking
-      userAvatar
-      realName
-    }
-  }
-  userProfileUserQuestionProgressV2: userProfileUserQuestionProgressV2(userSlug: $userSlug) {
-    totalQuestionBeatsPercentage
-  }
-  userSessionStats: matchedUser(username: $username) {
-    submitStats {
-      acSubmissionNum {
-        difficulty
-        count
-        submissions
-      }
-      totalSubmissionNum {
-        difficulty
-        count
-        submissions
-      }
-    }
-  }
-  userProfileCalendar: matchedUser(username: $username) {
-    userCalendar(year: $year) {
-      activeYears
-      streak
-      totalActiveDays
-      submissionCalendar
-    }
-  }
-  recentAcSubmissions: recentAcSubmissionList(username: $username, limit: $limit) {
-    title
-    titleSlug
-    timestamp
-  }
-}
-"""
-def fetch_leetcode_friend_data(friend_username):
+# Read the contents of the file draft_payload.gql
+with open("draft_payload.gql", "r") as gql_file:
+    QUERY = gql_file.read()
+
+def fetch_leetcode_user_data(username):
     variables = {
-        "username": friend_username,
-        "userSlug": friend_username,
+        "username": username,
+        "userSlug": username,
         "year": 2025,
         "limit": 10
     }
@@ -66,7 +23,7 @@ def fetch_leetcode_friend_data(friend_username):
     payload = {
         "query": QUERY,
         "variables": variables,
-        "operationName": "friendData"
+        "operationName": "userData"
     }
 
     response = requests.post(LEETCODE_ENDPOINT_URL, headers=HEADERS, json=payload)
