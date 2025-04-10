@@ -336,7 +336,7 @@ def get_friends():
     
     return jsonify({"friends": friends_response.data}), 200
 
-@app.route('/user-data/', methods=['GET'])
+@app.route('/current-user-info/', methods=['GET'])
 def get_leetcode_user_data():
     username = request.args.get("username")
     if not username:
