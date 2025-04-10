@@ -4,6 +4,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from leetcode_endpoint import fetch_leetcode_user_data
 
@@ -11,6 +12,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, origins=["https://leetcode.com"])
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Retrieve Supabase credentials from environment variables
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
