@@ -15,7 +15,7 @@ def fetch_leetcode_user_data(username):
         "username": username,
         "userSlug": username,
         "year": 2025,
-        "limit": 10
+        "limit": 20
     }
 
     payload = {
