@@ -70,6 +70,11 @@ def send_friend_request():
     data = request.get_json()
     sender_username = data.get("sender_username")
     receiver_username = data.get("receiver_username")
+
+    leetcode_url = f"https://leetcode.com/u/{receiver_username}"
+    leetcode_response = requests.get(leetcode_url)
+    if leetcode_response.status_code == 404:
+        return jsonify({"error": f"LeetCode user '{receiver_username}' not found"}), 404
     
     # Query the users table for sender by username
     try:
@@ -84,8 +89,11 @@ def send_friend_request():
         return jsonify({"error": f"Error fetching receiver: {str(e)}"}), 500
     
     # Check if both users were found
-    if not sender_response.data or not receiver_response.data:
-        return jsonify({"error": "Sender or receiver not found"}), 404
+    if not sender_response.data:
+        return jsonify({"error": "Invalid sender"}), 404
+
+    if not receiver_response.data:
+        return jsonify({"error": f"{receiver_username} is not registered in LeetCode Friends!"}), 404
     
     sender_id = sender_response.data[0]["id"]
     receiver_id = receiver_response.data[0]["id"]
