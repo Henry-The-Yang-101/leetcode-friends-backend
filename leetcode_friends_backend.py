@@ -12,6 +12,11 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, origins=["https://leetcode.com"])
+
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({"message": "Welcome to LeetCode Friends!"}), 200
+
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Retrieve Supabase credentials from environment variables
