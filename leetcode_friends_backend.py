@@ -5,6 +5,8 @@ import requests
 from dotenv import load_dotenv
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 from leetcode_endpoint import fetch_leetcode_user_data
 
@@ -12,6 +14,8 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, origins=["https://leetcode.com"])
+
+MAX_CONCURRENT_WORKERS = 12
 
 @app.route('/', methods=['GET'])
 def home():
@@ -334,20 +338,37 @@ def get_friends():
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
     
-    # For each friend, call fetch_leetcode_friend_data and merge the returned data into the friend record
-    friends_data = friends_response.data
-    for friend in friends_data:
+    # Helper function to fetch leetcode data for a single friend
+    def fetch_friend_data(friend):
         friend_username = friend.get("friend_username")
         if friend_username:
             if isinstance(friend.get('friend_username'), dict):
                 friend['friend_username'] = friend_username.get('username')
             try:
                 leetcode_data = fetch_leetcode_user_data(friend['friend_username'])
+                friend["data"] = leetcode_data.get("data")
             except Exception as e:
-                leetcode_data = {"error": str(e)}
-            friend["data"] = leetcode_data.get("data")
+                friend["data"] = {"error": str(e)}
+        return friend
     
-    return jsonify({"friends": friends_response.data}), 200
+    # Fetch all friends' data concurrently using ThreadPoolExecutor
+    friends_data = friends_response.data
+    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_WORKERS) as executor:
+        # Submit all tasks
+        future_to_friend = {executor.submit(fetch_friend_data, friend): friend for friend in friends_data}
+        
+        # Wait for all tasks to complete
+        completed_friends = []
+        for future in as_completed(future_to_friend):
+            try:
+                completed_friends.append(future.result())
+            except Exception as e:
+                # If a future fails, add the friend with an error
+                friend = future_to_friend[future]
+                friend["data"] = {"error": str(e)}
+                completed_friends.append(friend)
+    
+    return jsonify({"friends": completed_friends}), 200
 
 @app.route('/current-user-info/', methods=['GET'])
 def get_leetcode_user_data():
