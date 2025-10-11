@@ -414,6 +414,8 @@ def get_outgoing_friend_requests():
 @app.route('/friends', methods=['GET'])
 def get_friends():
     username = request.args.get("username")
+    fresh = request.args.get("fresh", "false").lower() == "true"
+    
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
 
@@ -438,7 +440,10 @@ def get_friends():
             if isinstance(friend.get('friend_username'), dict):
                 friend['friend_username'] = friend_username.get('username')
             try:
-                leetcode_data = fetch_leetcode_user_data_cached(friend['friend_username'])
+                if fresh:
+                    leetcode_data = fetch_leetcode_user_data(friend['friend_username'])
+                else:
+                    leetcode_data = fetch_leetcode_user_data_cached(friend['friend_username'])
                 friend["data"] = leetcode_data.get("data")
             except Exception as e:
                 friend["data"] = {"error": str(e)}
@@ -462,10 +467,15 @@ def get_friends():
 @app.route('/current-user-info/', methods=['GET'])
 def get_leetcode_user_data():
     username = request.args.get("username")
+    fresh = request.args.get("fresh", "false").lower() == "true"
+    
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
     try:
-        user_data = fetch_leetcode_user_data_cached(username)
+        if fresh:
+            user_data = fetch_leetcode_user_data(username)
+        else:
+            user_data = fetch_leetcode_user_data_cached(username)
         return jsonify(user_data), 200
     except Exception as e:
         return jsonify({"error": f"Error fetching data for {username}: {str(e)}"}), 500
