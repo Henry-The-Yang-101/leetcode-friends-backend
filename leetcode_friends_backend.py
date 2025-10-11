@@ -7,8 +7,18 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import time
+from collections import OrderedDict
+import json
 
 from leetcode_endpoint import fetch_leetcode_user_data
+
+# Try to import redis, fall back to in-memory cache if not available
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 load_dotenv()
 
@@ -17,9 +27,142 @@ CORS(app, origins=["https://leetcode.com"])
 
 MAX_CONCURRENT_WORKERS = 12
 
+# LeetCode data caching configuration
+CACHE_TTL = int(os.environ.get("CACHE_TTL", 300))  # 5 minutes default
+MAX_CACHE_SIZE = int(os.environ.get("MAX_CACHE_SIZE", 2000))  # Max 2000 users cached
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+class RedisCache:
+    """Redis-based cache - shared across all Gunicorn workers"""
+    def __init__(self, redis_url=REDIS_URL, ttl=CACHE_TTL):
+        self.redis_client = redis.from_url(redis_url, decode_responses=True)
+        self.ttl = ttl
+        self.cache_prefix = "leetcode:"
+    
+    def get(self, key):
+        try:
+            data = self.redis_client.get(self.cache_prefix + key)
+            if data:
+                return json.loads(data)
+            return None
+        except Exception as e:
+            print(f"Redis get error: {e}")
+            return None
+    
+    def set(self, key, value):
+        try:
+            self.redis_client.setex(
+                self.cache_prefix + key,
+                self.ttl,
+                json.dumps(value)
+            )
+        except Exception as e:
+            print(f"Redis set error: {e}")
+    
+    def size(self):
+        try:
+            return len(self.redis_client.keys(self.cache_prefix + "*"))
+        except Exception:
+            return 0
+    
+    def clear_expired(self):
+        # Redis handles expiration automatically
+        return 0
+
+class LRUCache:
+    """In-memory LRU cache with TTL - separate per worker"""
+    def __init__(self, max_size=MAX_CACHE_SIZE, ttl=CACHE_TTL):
+        self.cache = OrderedDict()
+        self.max_size = max_size
+        self.ttl = ttl
+    
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        
+        data, timestamp = self.cache[key]
+        
+        # Check if expired
+        if time.time() - timestamp > self.ttl:
+            del self.cache[key]
+            return None
+        
+        # Move to end (most recently used)
+        self.cache.move_to_end(key)
+        return data
+    
+    def set(self, key, value):
+        # Remove oldest if at capacity
+        if len(self.cache) >= self.max_size and key not in self.cache:
+            self.cache.popitem(last=False)
+        
+        self.cache[key] = (value, time.time())
+        self.cache.move_to_end(key)
+    
+    def size(self):
+        return len(self.cache)
+    
+    def clear_expired(self):
+        """Remove all expired entries"""
+        now = time.time()
+        expired_keys = [
+            key for key, (data, timestamp) in self.cache.items()
+            if now - timestamp > self.ttl
+        ]
+        for key in expired_keys:
+            del self.cache[key]
+        return len(expired_keys)
+
+# Initialize cache - use Redis if available, otherwise in-memory
+if REDIS_AVAILABLE:
+    try:
+        leetcode_cache = RedisCache()
+        # Test Redis connection
+        leetcode_cache.redis_client.ping()
+        CACHE_TYPE = "redis"
+        print("✓ Using Redis cache (shared across workers)")
+    except Exception as e:
+        print(f"✗ Redis connection failed: {e}")
+        print("→ Falling back to in-memory cache (per-worker)")
+        leetcode_cache = LRUCache()
+        CACHE_TYPE = "memory"
+else:
+    leetcode_cache = LRUCache()
+    CACHE_TYPE = "memory"
+    print("→ Using in-memory cache (per-worker)")
+
+def fetch_leetcode_user_data_cached(username):
+    """Fetch LeetCode data with caching"""
+    # Try to get from cache
+    cached_data = leetcode_cache.get(username)
+    if cached_data is not None:
+        return cached_data
+    
+    # Fetch fresh data
+    data = fetch_leetcode_user_data(username)
+    
+    # Store in cache
+    leetcode_cache.set(username, data)
+    
+    return data
+
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({"message": "Welcome to LeetCode Friends!"}), 200
+
+@app.route('/cache-stats', methods=['GET'])
+def cache_stats():
+    """Endpoint to monitor cache performance"""
+    expired_count = leetcode_cache.clear_expired()
+    return jsonify({
+        "cache_type": CACHE_TYPE,
+        "cache_size": leetcode_cache.size(),
+        "max_cache_size": MAX_CACHE_SIZE if CACHE_TYPE == "memory" else "unlimited",
+        "cache_ttl_seconds": CACHE_TTL,
+        "expired_entries_cleared": expired_count,
+        "memory_usage_estimate_mb": round(leetcode_cache.size() * 0.02, 2),  # ~20KB per entry
+        "shared_across_workers": CACHE_TYPE == "redis"
+    }), 200
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -345,7 +488,7 @@ def get_friends():
             if isinstance(friend.get('friend_username'), dict):
                 friend['friend_username'] = friend_username.get('username')
             try:
-                leetcode_data = fetch_leetcode_user_data(friend['friend_username'])
+                leetcode_data = fetch_leetcode_user_data_cached(friend['friend_username'])
                 friend["data"] = leetcode_data.get("data")
             except Exception as e:
                 friend["data"] = {"error": str(e)}
@@ -376,7 +519,7 @@ def get_leetcode_user_data():
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
     try:
-        user_data = fetch_leetcode_user_data(username)
+        user_data = fetch_leetcode_user_data_cached(username)
         return jsonify(user_data), 200
     except Exception as e:
         return jsonify({"error": f"Error fetching data for {username}: {str(e)}"}), 500
