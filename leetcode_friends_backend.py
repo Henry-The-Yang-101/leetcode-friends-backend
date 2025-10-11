@@ -13,7 +13,6 @@ import json
 
 from leetcode_endpoint import fetch_leetcode_user_data
 
-# Try to import redis, fall back to in-memory cache if not available
 try:
     import redis
     REDIS_AVAILABLE = True
@@ -27,13 +26,11 @@ CORS(app, origins=["https://leetcode.com"])
 
 MAX_CONCURRENT_WORKERS = 12
 
-# LeetCode data caching configuration
-CACHE_TTL = int(os.environ.get("CACHE_TTL", 300))  # 5 minutes default
-MAX_CACHE_SIZE = int(os.environ.get("MAX_CACHE_SIZE", 2000))  # Max 2000 users cached
+CACHE_TTL = int(os.environ.get("CACHE_TTL", 300))
+MAX_CACHE_SIZE = int(os.environ.get("MAX_CACHE_SIZE", 2000))
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
 class RedisCache:
-    """Redis-based cache - shared across all Gunicorn workers"""
     def __init__(self, redis_url=REDIS_URL, ttl=CACHE_TTL):
         self.redis_client = redis.from_url(redis_url, decode_responses=True)
         self.ttl = ttl
@@ -66,11 +63,9 @@ class RedisCache:
             return 0
     
     def clear_expired(self):
-        # Redis handles expiration automatically
         return 0
 
 class LRUCache:
-    """In-memory LRU cache with TTL - separate per worker"""
     def __init__(self, max_size=MAX_CACHE_SIZE, ttl=CACHE_TTL):
         self.cache = OrderedDict()
         self.max_size = max_size
@@ -82,17 +77,14 @@ class LRUCache:
         
         data, timestamp = self.cache[key]
         
-        # Check if expired
         if time.time() - timestamp > self.ttl:
             del self.cache[key]
             return None
         
-        # Move to end (most recently used)
         self.cache.move_to_end(key)
         return data
     
     def set(self, key, value):
-        # Remove oldest if at capacity
         if len(self.cache) >= self.max_size and key not in self.cache:
             self.cache.popitem(last=False)
         
@@ -103,7 +95,6 @@ class LRUCache:
         return len(self.cache)
     
     def clear_expired(self):
-        """Remove all expired entries"""
         now = time.time()
         expired_keys = [
             key for key, (data, timestamp) in self.cache.items()
@@ -113,11 +104,9 @@ class LRUCache:
             del self.cache[key]
         return len(expired_keys)
 
-# Initialize cache - use Redis if available, otherwise in-memory
 if REDIS_AVAILABLE:
     try:
         leetcode_cache = RedisCache()
-        # Test Redis connection
         leetcode_cache.redis_client.ping()
         CACHE_TYPE = "redis"
         print("✓ Using Redis cache (shared across workers)")
@@ -132,16 +121,12 @@ else:
     print("→ Using in-memory cache (per-worker)")
 
 def fetch_leetcode_user_data_cached(username):
-    """Fetch LeetCode data with caching"""
-    # Try to get from cache
     cached_data = leetcode_cache.get(username)
     if cached_data is not None:
         return cached_data
     
-    # Fetch fresh data
     data = fetch_leetcode_user_data(username)
     
-    # Store in cache
     leetcode_cache.set(username, data)
     
     return data
@@ -152,7 +137,6 @@ def home():
 
 @app.route('/cache-stats', methods=['GET'])
 def cache_stats():
-    """Endpoint to monitor cache performance"""
     expired_count = leetcode_cache.clear_expired()
     return jsonify({
         "cache_type": CACHE_TYPE,
@@ -160,17 +144,15 @@ def cache_stats():
         "max_cache_size": MAX_CACHE_SIZE if CACHE_TYPE == "memory" else "unlimited",
         "cache_ttl_seconds": CACHE_TTL,
         "expired_entries_cleared": expired_count,
-        "memory_usage_estimate_mb": round(leetcode_cache.size() * 0.02, 2),  # ~20KB per entry
+        "memory_usage_estimate_mb": round(leetcode_cache.size() * 0.02, 2),
         "shared_across_workers": CACHE_TYPE == "redis"
     }), 200
 
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Retrieve Supabase credentials from environment variables
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route('/user-is-registered', methods=['GET'])
@@ -199,7 +181,6 @@ def register_user():
     if leetcode_response.status_code == 404:
         return jsonify({"error": f"LeetCode user '{username}' not found"}), 404
 
-    # Check if the user is already registered
     try:
         existing_user = supabase.table("users").select("id").eq("username", username).execute()
     except Exception as e:
@@ -208,7 +189,6 @@ def register_user():
     if existing_user.data:
         return jsonify({"error": "User already exists"}), 400
 
-    # Insert the new user into the users table
     try:
         response = supabase.table("users").insert({"username": username}).execute()
     except Exception as e:
@@ -216,7 +196,6 @@ def register_user():
 
     return jsonify({"message": f"User {username} registered!", "user": response.data}), 200
 
-# Endpoint for sending a friend request
 @app.route('/friend-request/send', methods=['POST'])
 def send_friend_request():
     data = request.get_json()
@@ -228,19 +207,16 @@ def send_friend_request():
     if leetcode_response.status_code == 404:
         return jsonify({"error": f"LeetCode user '{receiver_username}' not found"}), 404
     
-    # Query the users table for sender by username
     try:
         sender_response = supabase.table("users").select("id").eq("username", sender_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching sender: {str(e)}"}), 500
     
-    # Query the users table for receiver by username
     try:
         receiver_response = supabase.table("users").select("id").eq("username", receiver_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching receiver: {str(e)}"}), 500
     
-    # Check if both users were found
     if not sender_response.data:
         return jsonify({"error": "Invalid sender"}), 404
 
@@ -250,7 +226,6 @@ def send_friend_request():
     sender_id = sender_response.data[0]["id"]
     receiver_id = receiver_response.data[0]["id"]
 
-    # Check if the given users are already friends
     try:
         friendship_response = supabase.table("friendships") \
             .select("id") \
@@ -263,7 +238,6 @@ def send_friend_request():
     if friendship_response.data:
         return jsonify({"error": "These users are already friends"}), 400
     
-    # Insert the friend request into the "pending_friend_requests" table
     try:
         response = supabase.table("pending_friend_requests").insert({
             "sender_id": sender_id,
@@ -280,26 +254,22 @@ def accept_friend_request():
     sender_username = data.get("sender_username")
     receiver_username = data.get("receiver_username")
     
-    # Query the users table for sender by username
     try:
         sender_response = supabase.table("users").select("id").eq("username", sender_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching sender: {str(e)}"}), 500
     
-    # Query the users table for receiver by username
     try:
         receiver_response = supabase.table("users").select("id").eq("username", receiver_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching receiver: {str(e)}"}), 500
     
-    # Check if both users were found
     if not sender_response.data or not receiver_response.data:
         return jsonify({"error": "Sender or receiver not found"}), 404
     
     sender_id = sender_response.data[0]["id"]
     receiver_id = receiver_response.data[0]["id"]
     
-    # Check if the pending friend request exists
     try:
         pending_response = supabase.table("pending_friend_requests") \
             .select("*") \
@@ -312,7 +282,6 @@ def accept_friend_request():
     if not pending_response.data:
         return jsonify({"error": "Friend request not found"}), 404
     
-    # Delete the pending friend request
     try:
         supabase.table("pending_friend_requests") \
             .delete() \
@@ -322,7 +291,6 @@ def accept_friend_request():
     except Exception as e:
         return jsonify({"error": f"Error deleting pending friend request: {str(e)}"}), 500
     
-    # Insert friendship relationships in both directions
     try:
         insert_response = supabase.table("friendships").insert([
             {"user_id": sender_id, "friend_id": receiver_id},
@@ -336,33 +304,28 @@ def accept_friend_request():
         "friendship": insert_response.data
     }), 200
 
-# Endpoint for declining a friend request
 @app.route('/friend-request/decline', methods=['POST'])
 def decline_friend_request():
     data = request.get_json()
     sender_username = data.get("sender_username")
     receiver_username = data.get("receiver_username")
     
-    # Query the users table for sender by username
     try:
         sender_response = supabase.table("users").select("id").eq("username", sender_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching sender: {str(e)}"}), 500
     
-    # Query the users table for receiver by username
     try:
         receiver_response = supabase.table("users").select("id").eq("username", receiver_username).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching receiver: {str(e)}"}), 500
     
-    # Check if both users were found
     if not sender_response.data or not receiver_response.data:
         return jsonify({"error": "Sender or receiver not found"}), 404
     
     sender_id = sender_response.data[0]["id"]
     receiver_id = receiver_response.data[0]["id"]
     
-    # Check if the pending friend request exists
     try:
         pending_response = supabase.table("pending_friend_requests") \
             .select("*") \
@@ -375,7 +338,6 @@ def decline_friend_request():
     if not pending_response.data:
         return jsonify({"error": "Friend request not found"}), 404
     
-    # Delete the pending friend request
     try:
         supabase.table("pending_friend_requests") \
             .delete() \
@@ -389,14 +351,12 @@ def decline_friend_request():
         "message": f"Declined {sender_username}'s friend request."
     }), 200
 
-# Endpoint to retrieve incoming friend requests for a specific user
 @app.route('/friend-request/incoming', methods=['GET'])
 def get_incoming_friend_requests():
     username = request.args.get("username")
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
 
-    # Query the users table to get the user ID for the provided username
     try:
         user_response = supabase.table("users").select("id").eq("username", username).execute()
     except Exception as e:
@@ -407,7 +367,6 @@ def get_incoming_friend_requests():
 
     user_id = user_response.data[0]["id"]
 
-    # Query pending_friend_requests where the user is the receiver
     try:
         pending_response = supabase.table("pending_friend_requests") \
             .select("sender_id, created_at, sender_username:users!pending_friend_requests_sender_id_fkey(username)") \
@@ -416,21 +375,18 @@ def get_incoming_friend_requests():
     except Exception as e:
         return jsonify({"error": f"Error fetching incoming friend requests: {str(e)}"}), 500
 
-    # Flatten sender_username to be a plain string if it's nested
     for friend_request in pending_response.data:
         if isinstance(friend_request.get('sender_username'), dict):
             friend_request['sender_username'] = friend_request['sender_username'].get('username')
 
     return jsonify({"incoming_friend_requests": pending_response.data}), 200
 
-# Endpoint to retrieve outgoing friend requests for a specific user
 @app.route('/friend-request/outgoing', methods=['GET'])
 def get_outgoing_friend_requests():
     username = request.args.get("username")
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
 
-    # Query the users table to get the user ID for the provided username
     try:
         user_response = supabase.table("users").select("id").eq("username", username).execute()
     except Exception as e:
@@ -441,7 +397,6 @@ def get_outgoing_friend_requests():
 
     user_id = user_response.data[0]["id"]
 
-    # Query pending_friend_requests where the user is the sender
     try:
         pending_response = supabase.table("pending_friend_requests") \
             .select("receiver_id, created_at, receiver_username:users!pending_friend_requests_receiver_id_fkey(username)") \
@@ -450,21 +405,18 @@ def get_outgoing_friend_requests():
     except Exception as e:
         return jsonify({"error": f"Error fetching outgoing friend requests: {str(e)}"}), 500
 
-    # Flatten receiver_username to be a plain string if it's nested
     for friend_request in pending_response.data:
         if isinstance(friend_request.get('receiver_username'), dict):
             friend_request['receiver_username'] = friend_request['receiver_username'].get('username')
 
     return jsonify({"outgoing_friend_requests": pending_response.data}), 200
 
-# Endpoint to retrieve friends
 @app.route('/friends', methods=['GET'])
 def get_friends():
     username = request.args.get("username")
     if not username:
         return jsonify({"error": "username parameter is required"}), 400
 
-    # Query the users table for the provided username
     try:
         user_response = supabase.table("users").select("id").eq("username", username).execute()
     except Exception as e:
@@ -475,13 +427,11 @@ def get_friends():
 
     user_id = user_response.data[0]["id"]
 
-    # Query the friendships table for rows where user_id matches the retrieved user ID, aliasing the username to friend_username
     try:
         friends_response = supabase.table("friendships").select("friend_id, friend_username:users!friendships_friend_id_fkey(username)").eq("user_id", user_id).execute()
     except Exception as e:
         return jsonify({"error": f"Error fetching friends: {str(e)}"}), 500
     
-    # Helper function to fetch leetcode data for a single friend
     def fetch_friend_data(friend):
         friend_username = friend.get("friend_username")
         if friend_username:
@@ -494,19 +444,15 @@ def get_friends():
                 friend["data"] = {"error": str(e)}
         return friend
     
-    # Fetch all friends' data concurrently using ThreadPoolExecutor
     friends_data = friends_response.data
     with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_WORKERS) as executor:
-        # Submit all tasks
         future_to_friend = {executor.submit(fetch_friend_data, friend): friend for friend in friends_data}
         
-        # Wait for all tasks to complete
         completed_friends = []
         for future in as_completed(future_to_friend):
             try:
                 completed_friends.append(future.result())
             except Exception as e:
-                # If a future fails, add the friend with an error
                 friend = future_to_friend[future]
                 friend["data"] = {"error": str(e)}
                 completed_friends.append(friend)
