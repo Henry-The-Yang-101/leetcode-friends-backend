@@ -1,4 +1,5 @@
 import requests
+from datetime import datetime
 
 LEETCODE_ENDPOINT_URL = "https://leetcode.com/graphql/"
 
@@ -14,7 +15,7 @@ def fetch_leetcode_user_data(username):
     variables = {
         "username": username,
         "userSlug": username,
-        "year": 2025,
+        "year": datetime.now().year,
         "limit": 20
     }
 
