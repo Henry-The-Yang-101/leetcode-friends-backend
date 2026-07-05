@@ -6,6 +6,7 @@ APP_DIR="/home/ec2-user/leetcode-friends-backend"
 GUNICORN_PATH="$APP_DIR/venv/bin/gunicorn"
 APP_MODULE="leetcode_friends_backend:app"
 WORKERS=4
+WORKER_CLASS="eventlet"
 BIND_ADDRESS="127.0.0.1:5000"
 
 cd "$APP_DIR" || { echo "ERROR: Failed to navigate to $APP_DIR"; exit 1; }
@@ -22,8 +23,10 @@ if [ -n "$EXISTING_PIDS" ]; then
 fi
 
 # Start Gunicorn with nohup
-echo "Starting Gunicorn with $WORKERS workers on $BIND_ADDRESS..."
-nohup "$GUNICORN_PATH" -w $WORKERS -b $BIND_ADDRESS "$APP_MODULE" > /dev/null 2>&1 &
+# The eventlet worker class is required for Flask-SocketIO's WebSocket transport
+# (Socket.IO signaling relay) to work correctly across workers.
+echo "Starting Gunicorn with $WORKERS $WORKER_CLASS workers on $BIND_ADDRESS..."
+nohup "$GUNICORN_PATH" -w $WORKERS -k $WORKER_CLASS -b $BIND_ADDRESS "$APP_MODULE" > /dev/null 2>&1 &
 
 sleep 2
 
