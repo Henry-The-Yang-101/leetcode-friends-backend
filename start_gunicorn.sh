@@ -5,7 +5,11 @@
 APP_DIR="/home/ec2-user/leetcode-friends-backend"
 GUNICORN_PATH="$APP_DIR/venv/bin/gunicorn"
 APP_MODULE="leetcode_friends_backend:app"
-WORKERS=4
+# NOTE: gunicorn's built-in load balancer has no sticky-session support, so
+# when using the eventlet worker for Flask-SocketIO only a single worker
+# process is supported. Do NOT increase this - see
+# https://flask-socketio.readthedocs.io/en/latest/deployment.html#gunicorn-web-server
+WORKERS=1
 WORKER_CLASS="eventlet"
 BIND_ADDRESS="127.0.0.1:5000"
 

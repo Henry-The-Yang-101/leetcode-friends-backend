@@ -136,7 +136,12 @@ SOCKETIO_MESSAGE_QUEUE = REDIS_URL if CACHE_TYPE == "redis" else None
 
 socketio = SocketIO(
     app,
-    cors_allowed_origins=["https://leetcode.com"],
+    # The Socket.IO client now lives in the MV3 background service worker, which
+    # connects from a "chrome-extension://<id>" origin (the id varies per
+    # install/unpacked load, so it can't be pinned to a single string here).
+    # Flask-SocketIO's CORS support has no wildcard/pattern matching, so we
+    # allow all origins; auth is still enforced via the "identify" handshake.
+    cors_allowed_origins="*",
     message_queue=SOCKETIO_MESSAGE_QUEUE,
     async_mode="eventlet" if EVENTLET_AVAILABLE else None,
 )
