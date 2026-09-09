@@ -2,7 +2,8 @@
 
 # Script to start Gunicorn for LeetCode Friends Backend
 
-APP_DIR="/home/ec2-user/leetcode-friends-backend"
+# APP_DIR="/home/ec2-user/leetcode-friends-backend" <- ec2
+APP_DIR="/home/hhenryyangg/leetcode-friends-backend" <- gcp
 GUNICORN_PATH="$APP_DIR/venv/bin/gunicorn"
 APP_MODULE="leetcode_friends_backend:app"
 # NOTE: gunicorn's built-in load balancer has no sticky-session support, so
